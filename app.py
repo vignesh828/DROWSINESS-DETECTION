@@ -7,23 +7,18 @@ from scipy.spatial import distance as dist
 import os
 import base64
 
-# 1. Sound Logic for Browser (JavaScript + HTML5 Injection)
+# 1. Sound Logic: Browser Autoplay Policy ni bypass cheyadaniki Iframe injection
 def get_audio_html(audio_file):
     if os.path.exists(audio_file):
         with open(audio_file, "rb") as f:
             audio_bytes = f.read()
             audio_base64 = base64.b64encode(audio_bytes).decode()
-            # JavaScript inclusion to force play and bypass some autoplay blocks
+            # Iframe and Audio tag combo for better browser compatibility
             return f'''
-                <audio id="alert-audio" autoplay="true" style="display:none;">
+                <iframe src="data:audio/mp3;base64,{audio_base64}" allow="autoplay" style="display:none" id="iframeAudio"></iframe>
+                <audio autoplay="true" style="display:none;">
                     <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
                 </audio>
-                <script>
-                    var audio = document.getElementById("alert-audio");
-                    audio.play().catch(error => {{
-                        console.log("Autoplay blocked. Interaction required.");
-                    }});
-                </script>
             '''
     return ""
 
@@ -38,7 +33,7 @@ def eye_aspect_ratio(eye):
 class DrowsinessTransformer(VideoTransformerBase):
     def __init__(self):
         self.detector = dlib.get_frontal_face_detector()
-        # GitHub root lo .dat file undali
+        # .dat file root folder lo undali
         self.predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
         self.counter = 0
 
@@ -79,18 +74,21 @@ st.set_page_config(page_title="AI Driver Safety Monitor", layout="centered")
 st.title("AI Driver Safety Monitor 🚗💤")
 st.write("Mechanical Engineering Project — IIT Kharagpur")
 
-# 4. Mandatory User Interaction for Sound
-st.sidebar.title("Configuration")
-if st.sidebar.button("🔔 Enable Alert Sound"):
+# Sidebar for Sound Permission (Mandatory for browsers)
+st.sidebar.title("Settings")
+enable_sound = st.sidebar.button("🔔 Click to Enable Alert Sound")
+if enable_sound:
     st.sidebar.success("Sound Permissions Granted!")
-    st.session_state['sound_enabled'] = True
 
 # Start Video Streamer
 ctx = webrtc_streamer(key="drowsiness-det", video_transformer_factory=DrowsinessTransformer)
 
-# 5. Check if sound should be played
+# 4. Sound Alert Logic
 if ctx.video_transformer and ctx.video_transformer.counter >= 20:
-    # IMPORTANT: Match your actual file name exactly
+    # FILE NAME CHECK: EXACT match with your mp3 file name
     audio_filename = "Amelia Island.mp3" 
-    st.markdown(get_audio_html(audio_filename), unsafe_allow_html=True)
-    st.error("⚠️ WAKE UP! Drowsiness Detected.")
+    if os.path.exists(audio_filename):
+        st.markdown(get_audio_html(audio_filename), unsafe_allow_html=True)
+        st.error("⚠️ WAKE UP! Drowsiness Detected.")
+    else:
+        st.warning(f"Audio file '{audio_filename}' not found in the root directory.")
