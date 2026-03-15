@@ -1,8 +1,4 @@
 streamlit
 streamlit-webrtc
 opencv-python-headless
-numpy==1.26.4
-scipy
-imutils
-https://github.com/jloh02/dlib/releases/download/v19.22/dlib-19.22.99-cp310-cp310-win_amd64.whl; sys_platform == 'win32'
-dlib-bin; sys_platform == 'linux'
+dlib-bin
