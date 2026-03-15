@@ -7,13 +7,24 @@ from scipy.spatial import distance as dist
 import os
 import base64
 
-# 1. Sound Logic for Browser (HTML5 Injection)
+# 1. Sound Logic for Browser (JavaScript + HTML5 Injection)
 def get_audio_html(audio_file):
     if os.path.exists(audio_file):
         with open(audio_file, "rb") as f:
             audio_bytes = f.read()
             audio_base64 = base64.b64encode(audio_bytes).decode()
-            return f'<audio autoplay="true" src="data:audio/mp3;base64,{audio_base64}">'
+            # JavaScript inclusion to force play and bypass some autoplay blocks
+            return f'''
+                <audio id="alert-audio" autoplay="true" style="display:none;">
+                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+                </audio>
+                <script>
+                    var audio = document.getElementById("alert-audio");
+                    audio.play().catch(error => {{
+                        console.log("Autoplay blocked. Interaction required.");
+                    }});
+                </script>
+            '''
     return ""
 
 # 2. Eye Aspect Ratio (EAR) Logic
@@ -27,7 +38,7 @@ def eye_aspect_ratio(eye):
 class DrowsinessTransformer(VideoTransformerBase):
     def __init__(self):
         self.detector = dlib.get_frontal_face_detector()
-        # Ensure the .dat file is in your GitHub root folder
+        # GitHub root lo .dat file undali
         self.predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
         self.counter = 0
 
@@ -35,8 +46,6 @@ class DrowsinessTransformer(VideoTransformerBase):
         img = frame.to_ndarray(format="bgr24")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         rects = self.detector(gray, 0)
-
-        alert_status = False
 
         for rect in rects:
             shape = self.predictor(gray, rect)
@@ -46,7 +55,7 @@ class DrowsinessTransformer(VideoTransformerBase):
             rightEAR = eye_aspect_ratio(shape[36:42])
             ear = (leftEAR + rightEAR) / 2.0
 
-            # Draw contours on eyes
+            # Draw visual guides
             leftHull = cv2.convexHull(shape[42:48])
             rightHull = cv2.convexHull(shape[36:42])
             cv2.drawContours(img, [leftHull], -1, (0, 255, 0), 1)
@@ -57,7 +66,6 @@ class DrowsinessTransformer(VideoTransformerBase):
                 if self.counter >= 20:
                     cv2.putText(img, "DROWSINESS ALERT!", (10, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                    alert_status = True
             else:
                 self.counter = 0
 
@@ -66,19 +74,23 @@ class DrowsinessTransformer(VideoTransformerBase):
 
         return img
 
-# Streamlit UI
+# --- Streamlit UI ---
 st.set_page_config(page_title="AI Driver Safety Monitor", layout="centered")
 st.title("AI Driver Safety Monitor 🚗💤")
 st.write("Mechanical Engineering Project — IIT Kharagpur")
 
-# Sidebar info
-st.sidebar.title("About Project")
-st.sidebar.info("This system uses Computer Vision to detect driver fatigue in real-time. Created by Buddha Vignesh.")
+# 4. Mandatory User Interaction for Sound
+st.sidebar.title("Configuration")
+if st.sidebar.button("🔔 Enable Alert Sound"):
+    st.sidebar.success("Sound Permissions Granted!")
+    st.session_state['sound_enabled'] = True
 
-# Start Streamer
+# Start Video Streamer
 ctx = webrtc_streamer(key="drowsiness-det", video_transformer_factory=DrowsinessTransformer)
 
-# Sound Alert Injection (if drowsy)
+# 5. Check if sound should be played
 if ctx.video_transformer and ctx.video_transformer.counter >= 20:
-    st.markdown(get_audio_html("Amelia Island.mp3"), unsafe_allow_html=True)
-    st.error("WAKE UP! Drowsiness Detected.")
+    # IMPORTANT: Match your actual file name exactly
+    audio_filename = "Amelia Island.mp3" 
+    st.markdown(get_audio_html(audio_filename), unsafe_allow_html=True)
+    st.error("⚠️ WAKE UP! Drowsiness Detected.")
