@@ -7,14 +7,23 @@ from scipy.spatial import distance as dist
 import os
 import base64
 
-# 1. HTML5 Sound Injection
-def get_audio_html(audio_file):
+# 1. Sound Logic: JavaScript Trigger to Bypass Browser Block
+def play_alert_sound(audio_file):
     if os.path.exists(audio_file):
         with open(audio_file, "rb") as f:
             audio_bytes = f.read()
             audio_base64 = base64.b64encode(audio_bytes).decode()
-            return f'<audio autoplay="true" src="data:audio/mp3;base64,{audio_base64}">'
-    return ""
+            # Deentlo JavaScript undi, adi alert vachinappudu browser ni force chesthundhi
+            audio_html = f'''
+                <audio id="alert-audio" autoplay="true">
+                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+                </audio>
+                <script>
+                    var audio = document.getElementById("alert-audio");
+                    audio.play();
+                </script>
+            '''
+            st.components.v1.html(audio_html, height=0)
 
 def eye_aspect_ratio(eye):
     A = dist.euclidean(eye[1], eye[5])
@@ -27,13 +36,14 @@ class DrowsinessTransformer(VideoTransformerBase):
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
         self.counter = 0
+        self.drowsy = False
 
     def transform(self, frame):
         img = frame.to_ndarray(format="bgr24")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         rects = self.detector(gray, 0)
         
-        drowsy_detected = False
+        self.drowsy = False 
 
         for rect in rects:
             shape = self.predictor(gray, rect)
@@ -44,27 +54,23 @@ class DrowsinessTransformer(VideoTransformerBase):
                 self.counter += 1
                 if self.counter >= 20:
                     cv2.putText(img, "DROWSINESS ALERT!", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                    # We set a flag here
+                    self.drowsy = True
             else:
                 self.counter = 0
 
             cv2.putText(img, f"EAR: {ear:.2f}", (300, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
         return img
 
-# --- UI ---
+# --- Main UI ---
 st.title("AI Driver Safety Monitor 🚗💤")
 st.write("Mechanical Engineering Project — IIT Kharagpur")
 
-st.sidebar.title("Settings")
-# Adding a manual play button to test if sound file is even reachable
-test_sound = st.sidebar.button("🔊 Test Sound Manually")
-if test_sound:
-    st.markdown(get_audio_html("Amelia Island.mp3"), unsafe_allow_html=True)
+st.sidebar.warning("Note: Please click anywhere on the page once to enable audio permissions.")
 
 ctx = webrtc_streamer(key="drowsiness-det", video_transformer_factory=DrowsinessTransformer)
 
-# 2. Main Alert Check
-if ctx.video_transformer and ctx.video_transformer.counter >= 20:
+# 2. Main Sound Trigger
+if ctx.video_transformer and ctx.video_transformer.drowsy:
     st.error("⚠️ WAKE UP! Drowsiness Detected.")
-    # Forced Sound Injection
-    st.markdown(get_audio_html("Amelia Island.mp3"), unsafe_allow_html=True)
+    # Use your exact file name
+    play_alert_sound("Amelia Island.mp3")
